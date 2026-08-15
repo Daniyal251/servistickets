@@ -1,0 +1,7 @@
+{
+  "name": "@ticket-service/config",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts"
+}
