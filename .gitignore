@@ -1,56 +1,64 @@
 ```
 # Dependencies
 node_modules/
-.pnpm-store/
+**/node_modules/
 
 # Build outputs
 dist/
 build/
-.next/
-.nuxt/
-out/
-
-# Runtime data
-.env
-.env.local
-.env.*
-.prisma/
-
-# Logs
-*.log
-
-# Coverage
+target/
 coverage/
-.nyc_output/
-.jest/
+htmlcov/
 
-# IDE
+# Package lock files
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Virtual environments
+venv/
+.venv/
+env/
+.ENV
+
+# IDE specific
 .vscode/
 .idea/
 *.swp
 *.swo
+*.tmp
 
-# OS
+# Logs
+*.log
+
+# Environment variables
+.env
+.env.local
+*.env.*
+
+# OS generated files
 .DS_Store
 Thumbs.db
 
-# TypeScript
-*.tsbuildinfo
-*.js.map
-*.ts.map
+# Testing
+.mypy_cache/
+.pytest_cache/
+.nyc_output/
+coverage/
 
-# Docker
-.dockerenv
-!Dockerfile
-!docker-compose.yml
+# Gradle
+.gradle/
+build/
 
-# Package manager
-package-lock.json
-yarn.lock
-pnpm-lock.yaml
-
-# Environment specific
-.env.development
-.env.production
-.env.test
+# Temporary files
+*.tmp
+*~
 ```

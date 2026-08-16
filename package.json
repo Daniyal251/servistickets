@@ -13,13 +13,17 @@
     "db:seed": "pnpm --filter @ticket-service/api db:seed"
   },
   "devDependencies": {
-    "turbo": "^2.0.0",
-    "typescript": "^5.4.0",
+    "eslint": "^8.57.0",
     "prettier": "^3.2.0",
-    "eslint": "^8.57.0"
+    "turbo": "^2.0.0",
+    "typescript": "^5.4.0"
   },
   "packageManager": "pnpm@9.0.0",
   "engines": {
     "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@nestjs/bull": "^11.0.5",
+    "bull": "^4.16.5"
   }
 }
