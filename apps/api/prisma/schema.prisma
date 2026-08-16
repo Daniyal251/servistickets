@@ -1,0 +1,142 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  firstName String?
+  lastName  String?
+  phone     String?
+  role      UserRole @default(CLIENT)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  orders     Order[]
+  tickets    Ticket[]
+  events     Event[] @relation("EventOrganizer")
+  
+  @@index(email)
+  @@index(role)
+}
+
+enum UserRole {
+  CLIENT
+  ORGANIZER
+  ADMIN
+}
+
+model Event {
+  id          String      @id @default(uuid())
+  title       String
+  description String      @db.Text
+  venueId     String
+  startDate   DateTime
+  endDate     DateTime
+  status      EventStatus @default(DRAFT)
+  imageUrl    String?
+  minPrice    Int
+  maxPrice    Int
+  organizerId String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  venue       Venue       @relation(fields: [venueId], references: [id])
+  organizer   User        @relation("EventOrganizer", fields: [organizerId], references: [id])
+  categories  Category[]  @relation("EventCategories")
+  tickets     Ticket[]
+  
+  @@index(status)
+  @@index(startDate)
+  @@index(organizerId)
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+  COMPLETED
+}
+
+model Venue {
+  id          String   @id @default(uuid())
+  name        String
+  address     String
+  city        String
+  capacity    Int
+  seatingChart Json?
+  
+  events Event[]
+  
+  @@index(city)
+}
+
+model Category {
+  id       String   @id @default(uuid())
+  name     String
+  slug     String   @unique
+  parentId String?
+  
+  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryHierarchy")
+  events   Event[]    @relation("EventCategories")
+  
+  @@index(slug)
+}
+
+model Ticket {
+  id        String      @id @default(uuid())
+  eventId   String
+  seatId    String
+  userId    String
+  orderId   String
+  price     Int
+  status    TicketStatus @default(RESERVED)
+  qrCode    String      @unique
+  createdAt DateTime    @default(now())
+  
+  event Event   @relation(fields: [eventId], references: [id])
+  user  User    @relation(fields: [userId], references: [id])
+  order Order   @relation(fields: [orderId], references: [id])
+  
+  @@index(eventId)
+  @@index(userId)
+  @@index(orderId)
+  @@index(status)
+}
+
+enum TicketStatus {
+  RESERVED
+  PAID
+  CANCELLED
+  USED
+}
+
+model Order {
+  id            String      @id @default(uuid())
+  userId        String
+  totalAmount   Int
+  status        OrderStatus @default(PENDING)
+  paymentMethod String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  
+  user   User    @relation(fields: [userId], references: [id])
+  tickets Ticket[]
+  
+  @@index(userId)
+  @@index(status)
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  CANCELLED
+  REFUNDED
+}
