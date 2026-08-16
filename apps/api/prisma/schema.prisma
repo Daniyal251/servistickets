@@ -7,61 +7,94 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  firstName String?
-  lastName  String?
-  phone     String?
-  role      UserRole @default(CLIENT)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  orders     Order[]
-  tickets    Ticket[]
-  events     Event[] @relation("EventOrganizer")
-  
-  @@index(email)
-  @@index(role)
-}
-
 enum UserRole {
   CLIENT
   ORGANIZER
   ADMIN
+  SUPPORT
 }
 
-model Event {
-  id          String      @id @default(uuid())
-  title       String
-  description String      @db.Text
-  venueId     String
-  startDate   DateTime
-  endDate     DateTime
-  status      EventStatus @default(DRAFT)
-  imageUrl    String?
-  minPrice    Int
-  maxPrice    Int
-  organizerId String
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  
-  venue       Venue       @relation(fields: [venueId], references: [id])
-  organizer   User        @relation("EventOrganizer", fields: [organizerId], references: [id])
-  categories  Category[]  @relation("EventCategories")
-  tickets     Ticket[]
-  
-  @@index(status)
-  @@index(startDate)
-  @@index(organizerId)
-}
-
-enum EventStatus {
-  DRAFT
-  PUBLISHED
+enum TicketStatus {
+  AVAILABLE
+  RESERVED
+  SOLD
   CANCELLED
+  REFUNDED
+  USED
+}
+
+enum OrderStatus {
+  PENDING
+  PAYMENT_PROCESSING
+  PAID
+  CANCELLED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum EventType {
+  CONCERT
+  THEATER
+  SPORT
+  CONFERENCE
+  FESTIVAL
+  EXHIBITION
+  OTHER
+}
+
+enum PaymentMethod {
+  CARD
+  SBP
+  APPLE_PAY
+  GOOGLE_PAY
+}
+
+enum PromoType {
+  TOP_LISTING
+  HOME_FEATURED
+  EMAIL_BLAST
+  SOCIAL_PUSH
+  CATEGORY_HERO
+  RECOMMENDATION
+}
+
+enum PromoStatus {
+  DRAFT
+  PENDING_PAYMENT
+  ACTIVE
+  PAUSED
+  EXPIRED
+  REJECTED
   COMPLETED
+}
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  phone         String?  @unique
+  password      String
+  firstName     String?
+  lastName      String?
+  avatarUrl     String?
+  role          UserRole @default(CLIENT)
+  isActive      Boolean  @default(true)
+  isVerified    Boolean  @default(false)
+  
+  walletBalance Decimal  @default(0) @db.Decimal(10, 2)
+  
+  orders         Order[]
+  tickets        Ticket[]
+  organizedEvents Event[]
+  reviews        Review[]
+  notifications  Notification[]
+  promoCampaigns PromoCampaign[] @relation("OrganizerPromoCampaigns")
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([email])
+  @@index([phone])
+  @@index([role])
 }
 
 model Venue {
@@ -69,74 +102,271 @@ model Venue {
   name        String
   address     String
   city        String
+  country     String   @default("Russia")
+  latitude    Float?
+  longitude   Float?
   capacity    Int
+  description String?
+  imageUrl    String?
   seatingChart Json?
   
   events Event[]
   
-  @@index(city)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([city])
+  @@index([name])
+}
+
+model Event {
+  id          String    @id @default(uuid())
+  title       String
+  description String?   @db.Text
+  eventType   EventType
+  startDate   DateTime
+  endDate     DateTime?
+  timezone    String    @default("Europe/Moscow")
+  
+  minPrice    Decimal
+  maxPrice    Decimal
+  currency    String    @default("RUB")
+  
+  status      String    @default("DRAFT")
+  isFeatured  Boolean   @default(false)
+  isPublic    Boolean   @default(false)
+  
+  venueId     String?
+  venue       Venue?    @relation(fields: [venueId], references: [id])
+  onlineUrl   String?
+  
+  organizerId String
+  organizer   User      @relation(fields: [organizerId], references: [id])
+  
+  categories Category[]
+  
+  tickets    Ticket[]
+  orders     Order[]
+  reviews    Review[]
+  promoCampaigns PromoCampaign[]
+  
+  slug        String   @unique
+  metaTitle   String?
+  metaDescription String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([organizerId])
+  @@index([startDate])
+  @@index([status])
+  @@index([eventType])
+  @@index([venueId])
 }
 
 model Category {
-  id       String   @id @default(uuid())
-  name     String
-  slug     String   @unique
-  parentId String?
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  parentId  String?
+  parent    Category? @relation("CategoryToCategory", fields: [parentId], references: [id])
+  children  Category[] @relation("CategoryToCategory")
   
-  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
-  children Category[] @relation("CategoryHierarchy")
-  events   Event[]    @relation("EventCategories")
+  events Event[]
   
-  @@index(slug)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([slug])
+  @@index([parentId])
 }
 
 model Ticket {
-  id        String      @id @default(uuid())
-  eventId   String
-  seatId    String
-  userId    String
-  orderId   String
-  price     Int
-  status    TicketStatus @default(RESERVED)
-  qrCode    String      @unique
-  createdAt DateTime    @default(now())
+  id          String      @id @default(uuid())
+  eventId     String
+  event       Event       @relation(fields: [eventId], references: [id])
   
-  event Event   @relation(fields: [eventId], references: [id])
-  user  User    @relation(fields: [userId], references: [id])
-  order Order   @relation(fields: [orderId], references: [id])
+  ticketType  String
+  price       Decimal
+  currency    String      @default("RUB")
   
-  @@index(eventId)
-  @@index(userId)
-  @@index(orderId)
-  @@index(status)
-}
-
-enum TicketStatus {
-  RESERVED
-  PAID
-  CANCELLED
-  USED
+  seatSection String?
+  seatRow     String?
+  seatNumber  String?
+  
+  status      TicketStatus @default(AVAILABLE)
+  
+  qrCode      String?     @unique
+  pdfUrl      String?
+  
+  orderId     String?
+  order       Order?      @relation(fields: [orderId], references: [id])
+  buyerId     String?
+  buyer       User?       @relation(fields: [buyerId], references: [id])
+  
+  isResale    Boolean     @default(false)
+  resalePrice Decimal?
+  
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  @@index([eventId])
+  @@index([status])
+  @@index([orderId])
+  @@index([buyerId])
+  @@index([qrCode])
 }
 
 model Order {
-  id            String      @id @default(uuid())
-  userId        String
-  totalAmount   Int
-  status        OrderStatus @default(PENDING)
-  paymentMethod String?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  id              String      @id @default(uuid())
+  orderNumber     String      @unique
   
-  user   User    @relation(fields: [userId], references: [id])
-  tickets Ticket[]
+  userId          String
+  user            User        @relation(fields: [userId], references: [id])
   
-  @@index(userId)
-  @@index(status)
+  eventId         String
+  event           Event       @relation(fields: [eventId], references: [id])
+  
+  tickets         Ticket[]
+  totalAmount     Decimal
+  serviceFee      Decimal     @default(0)
+  finalAmount     Decimal
+  
+  currency        String      @default("RUB")
+  
+  status          OrderStatus @default(PENDING)
+  paymentMethod   PaymentMethod?
+  paymentIntentId String?
+  paidAt          DateTime?
+  
+  refundAmount    Decimal?
+  refundedAt      DateTime?
+  
+  ipAddress       String?
+  userAgent       String?
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  @@index([userId])
+  @@index([eventId])
+  @@index([status])
+  @@index([orderNumber])
+  @@index([createdAt])
 }
 
-enum OrderStatus {
-  PENDING
-  PAID
-  CANCELLED
-  REFUNDED
+model Review {
+  id        String   @id @default(uuid())
+  rating    Int
+  comment   String?
+  
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id])
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  
+  isVisible Boolean  @default(true)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([eventId])
+  @@index([userId])
+  @@index([rating])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  
+  type      String
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+  @@index([isRead])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  action    String
+  entity    String
+  entityId  String
+  userId    String?
+  metadata  Json?
+  
+  ipAddress String?
+  userAgent String?
+  
+  createdAt DateTime @default(now())
+  
+  @@index([entity])
+  @@index([entityId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model PromoCampaign {
+  id          String      @id @default(cuid())
+  organizerId String
+  eventId     String?
+  type        PromoType
+  status      PromoStatus @default(DRAFT)
+  
+  title       String
+  description String?     @db.Text
+  
+  budget      Decimal     @db.Decimal(10, 2)
+  spent       Decimal     @default(0) @db.Decimal(10, 2)
+  bidAmount   Decimal?    @db.Decimal(10, 2)
+  priceType   String      @default("FIXED")
+  
+  startDate   DateTime
+  endDate     DateTime
+  
+  targeting   Json?
+  
+  bannerUrl   String?
+  headline    String?
+  ctaText     String?
+  
+  impressions Int         @default(0)
+  clicks      Int         @default(0)
+  conversions Int         @default(0)
+  revenue     Decimal     @default(0) @db.Decimal(10, 2)
+  
+  priority    Int         @default(0)
+  
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  organizer   User        @relation("OrganizerPromoCampaigns", fields: [organizerId], references: [id])
+  event       Event?      @relation(fields: [eventId], references: [id])
+  
+  transactions PromoTransaction[]
+
+  @@index([organizerId])
+  @@index([status, endDate])
+  @@index([eventId])
+  @@index([priority, status])
+}
+
+model PromoTransaction {
+  id        String   @id @default(cuid())
+  campaignId String
+  amount    Decimal  @db.Decimal(10, 2)
+  type      String
+  description String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+  
+  campaign  PromoCampaign @relation(fields: [campaignId], references: [id])
+  
+  @@index([campaignId])
+  @@index([type])
 }
